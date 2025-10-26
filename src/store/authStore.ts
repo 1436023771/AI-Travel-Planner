@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authService } from '@/services/auth';
+import { authService } from '@/services/authService';
 import type { User, LoginCredentials, RegisterCredentials } from '@/types/auth';
 
 interface AuthStore {
@@ -8,7 +8,6 @@ interface AuthStore {
   loading: boolean;
   error: string | null;
   
-  // Actions
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
@@ -72,7 +71,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
         error: error.message || '登出失败',
         loading: false 
       });
-      throw error;
     }
   },
 

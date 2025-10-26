@@ -20,7 +20,6 @@ export interface TravelPlan {
   status: PlanStatus;
   created_at: string;
   updated_at: string;
-  itinerary_items?: ItineraryItem[];
 }
 
 export interface ItineraryItem {
@@ -30,7 +29,8 @@ export interface ItineraryItem {
   type: ItemType;
   title: string;
   description: string;
-  location: Location;
+  location_lat: number;
+  location_lng: number;
   address: string;
   time_start: string;
   time_end: string;
