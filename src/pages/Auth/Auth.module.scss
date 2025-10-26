@@ -1,0 +1,30 @@
+.authForm {
+  h2 {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+  
+  .subtitle {
+    color: #666;
+    margin-bottom: 32px;
+  }
+  
+  .links {
+    text-align: center;
+    margin-top: 16px;
+    
+    span {
+      margin-right: 8px;
+      color: #666;
+    }
+    
+    a {
+      color: #667eea;
+      font-weight: 500;
+      
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}

@@ -1,0 +1,80 @@
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.app-header {
+  padding: 60px 20px 40px;
+  text-align: center;
+  color: white;
+}
+
+.app-header h1 {
+  font-size: 48px;
+  margin: 0 0 16px 0;
+  font-weight: 700;
+}
+
+.app-header p {
+  font-size: 20px;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.app-main {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  margin-bottom: 24px;
+}
+
+.card h2 {
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.card p {
+  color: #666;
+  margin-bottom: 24px;
+  font-size: 16px;
+}
+
+.info {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.info h3 {
+  color: #333;
+  margin: 0 0 16px 0;
+  font-size: 20px;
+}
+
+.info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+}
+
+.info li {
+  padding: 8px 0;
+  color: #666;
+  font-size: 15px;
+}
+
+.info li:before {
+  content: "• ";
+  color: #667eea;
+  font-weight: bold;
+  margin-right: 8px;
+}

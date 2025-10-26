@@ -1,0 +1,49 @@
+.layout {
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 0 50px;
+  background: #001529;
+  
+  .logo {
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
+    margin-right: 50px;
+  }
+  
+  .menu {
+    flex: 1;
+    border: none;
+  }
+  
+  .userSection {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    
+    .avatar {
+      cursor: pointer;
+      background: #1890ff;
+    }
+  }
+}
+
+.content {
+  padding: 24px 50px;
+  background: #f0f2f5;
+  
+  .contentInner {
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: calc(100vh - 134px - 70px);
+  }
+}
+
+.footer {
+  text-align: center;
+  background: #f0f2f5;
+}
