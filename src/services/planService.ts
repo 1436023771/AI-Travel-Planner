@@ -52,5 +52,32 @@ export const planService = {
     }
 
     return planRow
-  }
+  },
+
+  // 新增：根据 planId 拉取计划与行程项
+  async getPlanById(planId: string) {
+    // 先获取主表
+    const { data: planRow, error: planErr } = await supabase
+      .from('travel_plans')
+      .select('*')
+      .eq('id', planId)
+      .single()
+
+    if (planErr || !planRow) {
+      throw planErr || new Error('未找到指定的旅行计划')
+    }
+
+    // 再获取对应的 itinerary_items
+    const { data: items, error: itemsErr } = await supabase
+      .from('itinerary_items')
+      .select('*')
+      .eq('plan_id', planId)
+      .order('order_index', { ascending: true })
+
+    if (itemsErr) {
+      console.warn('获取行程项失败', itemsErr)
+    }
+
+    return { ...planRow, itinerary_items: items || [] as ItineraryItem[] }
+  },
 }

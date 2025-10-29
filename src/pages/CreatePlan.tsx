@@ -7,6 +7,8 @@ import { createVoiceRecorder } from '@/services/voiceService'
 import { planService } from '@/services/planService'
 import { useAuthStore } from '@/store/authStore'
 import type { CreatePlanInput } from '@/types/plan'
+import { MapPreview } from '@/components/MapPreview'
+import ItineraryView from '@/components/ItineraryView'
 
 const { RangePicker } = DatePicker
 const recorder = createVoiceRecorder()
@@ -18,6 +20,7 @@ export const CreatePlan = () => {
   const [aiResult, setAiResult] = useState<any>(null)
   const [rawText, setRawText] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
+  const [showRawFull, setShowRawFull] = useState(false)
   const { user } = useAuthStore()
   const formRef = useRef<any>(null)
 
@@ -187,17 +190,23 @@ export const CreatePlan = () => {
         {!aiResult && <p style={{ color: '#666' }}>请填写信息并点击“生成 AI 行程”</p>}
         {aiResult && (
           <Card style={{ marginTop: 12 }}>
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {JSON.stringify(aiResult, null, 2)}
-            </pre>
+            {/* 可读化展示：ItineraryView */}
+            <ItineraryView plan={aiResult} />
 
+            {/* 原始输出折叠展示（截断） */}
             {rawText && (
               <>
                 <Divider />
                 <h4>原始输出（LLM）</h4>
-                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                <div style={{ maxHeight: showRawFull ? 'none' : 240, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#fafafa', padding: 12, borderRadius: 6 }}>
                   {rawText}
-                </pre>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <Space>
+                    <Button onClick={() => { navigator.clipboard?.writeText(rawText || '') ; message.success('已复制原始输出') }}>复制原始输出</Button>
+                    <Button onClick={() => setShowRawFull((s) => !s)}>{showRawFull ? '折叠' : '展开全部'}</Button>
+                  </Space>
+                </div>
               </>
             )}
 

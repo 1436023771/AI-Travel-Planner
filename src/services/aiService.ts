@@ -10,10 +10,18 @@ const OPENAI_URL = import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.c
 const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
 
 function buildPrompt(input: CreatePlanInput) {
+  const days = Math.ceil((new Date(input.endDate).getTime() - new Date(input.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
+  
   return `你是专业的旅行规划师。请根据用户信息输出仅包含可解析 JSON 的旅行计划（不要其他多余文字）。
+要求：
+1. 每天安排 3-5 个行程项（景点/餐厅/住宿/交通）
+2. 描述简洁（20字以内）
+3. 必须包含地理坐标（location_lat/location_lng）
+4. 仅输出 JSON，不要任何解释
+
 输出格式示例:
 {
-  "title": "示例标题",
+  "title": "东京5日游",
   "destination": "东京",
   "start_date": "2025-06-01",
   "end_date": "2025-06-05",
@@ -25,7 +33,7 @@ function buildPrompt(input: CreatePlanInput) {
       "day": 1,
       "type": "attraction",
       "title": "浅草寺",
-      "description": "访问浅草寺与周边商店",
+      "description": "参观浅草寺",
       "location_lat": 35.7148,
       "location_lng": 139.7967,
       "address": "浅草",
@@ -36,13 +44,17 @@ function buildPrompt(input: CreatePlanInput) {
     }
   ]
 }
+
 用户需求：
 目的地: ${input.destination}
 起始日期: ${input.startDate}
 结束日期: ${input.endDate}
-预算: ${input.budget}
-人数: ${input.travelers}
-偏好: ${input.preferences}`
+天数: ${days}天
+预算: ${input.budget}元
+人数: ${input.travelers}人
+偏好: ${input.preferences || '无特殊偏好'}
+
+请立即输出 JSON（不要前后说明）。`
 }
 
 async function tryBaichuanCall(prompt: string) {
@@ -62,14 +74,14 @@ async function tryBaichuanCall(prompt: string) {
       model: BAICHUAN_MODEL,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.2,
-      max_tokens: 2000,
+      max_tokens: 4000, // 增加到 4000
     })
   }
 
   candidates.push(
-    { prompt, max_tokens: 2000, temperature: 0.2 },
-    { input: prompt, max_tokens: 2000, temperature: 0.2 },
-    { messages: [{ role: 'user', content: prompt }], max_tokens: 2000, temperature: 0.2 },
+    { prompt, max_tokens: 4000, temperature: 0.2 }, // 增加到 4000
+    { input: prompt, max_tokens: 4000, temperature: 0.2 },
+    { messages: [{ role: 'user', content: prompt }], max_tokens: 4000, temperature: 0.2 },
   )
 
   let lastError: { status?: number; text?: string } | null = null
@@ -159,11 +171,11 @@ export const aiService = {
         const body = {
           model: 'gpt-4',
           messages: [
-            { role: 'system', content: '你是专业的旅行规划师，输出仅为 JSON，不要额外说明。' },
+            { role: 'system', content: '你是专业的旅行规划师，输出仅为 JSON，不要额外说明。描述简洁，每项不超过20字。' },
             { role: 'user', content: prompt },
           ],
           temperature: 0.2,
-          max_tokens: 1500,
+          max_tokens: 4000, // 增加到 4000
         }
 
         const resp = await fetch(`${OPENAI_URL}/chat/completions`, {
