@@ -80,4 +80,36 @@ export const planService = {
 
     return { ...planRow, itinerary_items: items || [] as ItineraryItem[] }
   },
+
+  // 获取用户的所有计划
+  async getUserPlans(userId: string) {
+    const { data, error } = await supabase
+      .from('travel_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  },
+
+  // 删除计划
+  async deletePlan(planId: string) {
+    const { error } = await supabase
+      .from('travel_plans')
+      .delete()
+      .eq('id', planId)
+
+    if (error) throw error
+  },
+
+  // 更新计划状态
+  async updatePlanStatus(planId: string, status: 'draft' | 'active' | 'completed') {
+    const { error } = await supabase
+      .from('travel_plans')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', planId)
+
+    if (error) throw error
+  },
 }

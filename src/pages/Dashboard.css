@@ -1,0 +1,58 @@
+.dashboard {
+  padding: 24px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.user-email {
+  color: #666;
+  margin: 8px 0 0 0;
+}
+
+.plan-card {
+  height: 100%;
+}
+
+.plan-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.plan-card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-card-body {
+  color: #666;
+}
+
+.plan-card-body .destination {
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.plan-card-body .dates {
+  margin-bottom: 12px;
+}
+
+.plan-meta {
+  margin-top: 8px;
+}

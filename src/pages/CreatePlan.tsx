@@ -1,26 +1,26 @@
 import { useState, useRef } from 'react'
-import { Card, Form, Input, DatePicker, InputNumber, Button, Space, message, Divider } from 'antd'
-import { SoundOutlined, StopOutlined } from '@ant-design/icons'
+import { Card, Form, Input, DatePicker, InputNumber, Button, Space, message, Divider, Table, Typography, Tag } from 'antd'
+import { SoundOutlined, StopOutlined, EditOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { aiService } from '@/services/aiService'
 import { createVoiceRecorder } from '@/services/voiceService'
 import { planService } from '@/services/planService'
+import { MapPreview } from '@/components/MapPreview'
 import { useAuthStore } from '@/store/authStore'
 import type { CreatePlanInput } from '@/types/plan'
-import { MapPreview } from '@/components/MapPreview'
-import ItineraryView from '@/components/ItineraryView'
 
 const { RangePicker } = DatePicker
 const recorder = createVoiceRecorder()
 
 export const CreatePlan = () => {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [aiResult, setAiResult] = useState<any>(null)
   const [rawText, setRawText] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
-  const [showRawFull, setShowRawFull] = useState(false)
   const { user } = useAuthStore()
   const formRef = useRef<any>(null)
 
@@ -76,9 +76,8 @@ export const CreatePlan = () => {
       setRawText(raw)
       if (plan) {
         setAiResult(plan)
-        message.success('AI 行程生成完成（已解析）')
+        message.success('AI 行程生成完成')
       } else {
-        // fallback: show raw
         setAiResult({ note: '无法解析为 JSON，查看原文。' })
         message.warning('AI 返回无法解析为 JSON，请查看「原始输出」')
       }
@@ -100,14 +99,84 @@ export const CreatePlan = () => {
     }
     setLoading(true)
     try {
-      const saved = await planService.savePlan(user.id, aiResult)
+      await planService.savePlan(user.id, aiResult)
       message.success('旅行计划已保存')
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 1000)
     } catch (e: any) {
       message.error('保存失败：' + (e.message || String(e)))
     } finally {
       setLoading(false)
     }
   }
+
+  const calculateBudgetBreakdown = () => {
+    if (!aiResult?.itinerary_items) return null
+
+    const breakdown = {
+      transport: 0,
+      accommodation: 0,
+      attraction: 0,
+      restaurant: 0,
+      total: 0,
+    }
+
+    aiResult.itinerary_items.forEach((item: any) => {
+      const cost = item.estimated_cost || 0
+      const type = item.type || 'other'
+      if (type in breakdown) {
+        breakdown[type as keyof typeof breakdown] += cost
+      }
+      breakdown.total += cost
+    })
+
+    return breakdown
+  }
+
+  const budgetBreakdown = aiResult ? calculateBudgetBreakdown() : null
+
+  const columns = [
+    {
+      title: '天数',
+      dataIndex: 'day',
+      width: 60,
+      render: (day: number) => `第${day}天`,
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      width: 100,
+      render: (type: string) => {
+        const typeMap: Record<string, string> = {
+          transport: '🚗 交通',
+          accommodation: '🏨 住宿',
+          attraction: '🎯 景点',
+          restaurant: '🍴 餐饮',
+        }
+        return typeMap[type] || type
+      },
+    },
+    {
+      title: '项目',
+      dataIndex: 'title',
+      ellipsis: true,
+    },
+    {
+      title: '时间',
+      key: 'time',
+      width: 150,
+      render: (_: any, record: any) => (
+        <span>{record.time_start} - {record.time_end}</span>
+      ),
+    },
+    {
+      title: '预算',
+      dataIndex: 'estimated_cost',
+      width: 100,
+      render: (cost: number) => (cost ? `¥${cost}` : '-'),
+    },
+  ]
 
   return (
     <div style={{ padding: 24 }}>
@@ -156,7 +225,12 @@ export const CreatePlan = () => {
               >
                 停止
               </Button>
-              <Button onClick={() => { setTranscript(''); message.success('已清空语音内容') }}>
+              <Button
+                onClick={() => {
+                  setTranscript('')
+                  message.success('已清空语音内容')
+                }}
+              >
                 清空语音文本
               </Button>
             </Space>
@@ -175,7 +249,13 @@ export const CreatePlan = () => {
               <Button type="primary" htmlType="submit" loading={generating}>
                 生成 AI 行程
               </Button>
-              <Button onClick={() => { formRef.current?.resetFields(); setTranscript(''); setAiResult(null) }}>
+              <Button
+                onClick={() => {
+                  formRef.current?.resetFields()
+                  setTranscript('')
+                  setAiResult(null)
+                }}
+              >
                 重置
               </Button>
             </Space>
@@ -187,40 +267,124 @@ export const CreatePlan = () => {
 
       <div>
         <h2>AI 生成结果</h2>
-        {!aiResult && <p style={{ color: '#666' }}>请填写信息并点击“生成 AI 行程”</p>}
+        {!aiResult && <p style={{ color: '#666' }}>请填写信息并点击"生成 AI 行程"</p>}
         {aiResult && (
-          <Card style={{ marginTop: 12 }}>
-            {/* 可读化展示：ItineraryView */}
-            <ItineraryView plan={aiResult} />
-
-            {/* 原始输出折叠展示（截断） */}
-            {rawText && (
-              <>
-                <Divider />
-                <h4>原始输出（LLM）</h4>
-                <div style={{ maxHeight: showRawFull ? 'none' : 240, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#fafafa', padding: 12, borderRadius: 6 }}>
-                  {rawText}
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <Space>
-                    <Button onClick={() => { navigator.clipboard?.writeText(rawText || '') ; message.success('已复制原始输出') }}>复制原始输出</Button>
-                    <Button onClick={() => setShowRawFull((s) => !s)}>{showRawFull ? '折叠' : '展开全部'}</Button>
-                  </Space>
-                </div>
-              </>
+          <>
+            {budgetBreakdown && (
+              <Card style={{ marginBottom: 16 }}>
+                <h3>💰 预算分析</h3>
+                <Space size="large">
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666' }}>总预算</div>
+                    <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                      ¥{budgetBreakdown.total}
+                    </div>
+                  </div>
+                  <Divider type="vertical" style={{ height: 50 }} />
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666' }}>交通</div>
+                    <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                      ¥{budgetBreakdown.transport}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666' }}>住宿</div>
+                    <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                      ¥{budgetBreakdown.accommodation}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666' }}>景点</div>
+                    <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                      ¥{budgetBreakdown.attraction}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666' }}>餐饮</div>
+                    <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                      ¥{budgetBreakdown.restaurant}
+                    </div>
+                  </div>
+                </Space>
+              </Card>
             )}
+
+            {Array.isArray(aiResult.itinerary_items) && aiResult.itinerary_items.length > 0 && (
+              <Card style={{ marginBottom: 16 }}>
+                <h3>🗺️ 地图预览</h3>
+                <div style={{ marginBottom: 12, color: '#666', fontSize: 13 }}>
+                  总共 {aiResult.itinerary_items.length} 个行程点，
+                  有效坐标 {aiResult.itinerary_items.filter((item: any) => {
+                    const lat = item.location_lat
+                    const lng = item.location_lng
+                    return typeof lat === 'number' && typeof lng === 'number'
+                  }).length} 个
+                </div>
+                
+                {/* 显示前3个坐标用于调试 */}
+                <div style={{ marginBottom: 12, fontSize: 12, color: '#999' }}>
+                  前3个点坐标：
+                  {aiResult.itinerary_items.slice(0, 3).map((item: any, idx: number) => (
+                    <div key={idx}>
+                      {idx + 1}. {item.title}: 
+                      [{item.location_lng}, {item.location_lat}]
+                    </div>
+                  ))}
+                </div>
+                
+                <MapPreview 
+                  items={aiResult.itinerary_items} 
+                  height={400} 
+                  showRoute={true}
+                />
+              </Card>
+            )}
+
+            {Array.isArray(aiResult.itinerary_items) && aiResult.itinerary_items.length > 0 && (
+              <Card style={{ marginBottom: 16 }}>
+                <h3>📅 行程安排</h3>
+                <Table
+                  columns={columns}
+                  dataSource={aiResult.itinerary_items}
+                  rowKey={(record, index) => `${record.day}-${index}`}
+                  pagination={false}
+                  size="small"
+                />
+              </Card>
+            )}
+
+            <Card style={{ marginBottom: 16 }}>
+              <Typography.Paragraph>
+                <Typography.Text
+                  copyable={{
+                    text: JSON.stringify(aiResult, null, 2),
+                  }}
+                >
+                  点击复制完整 JSON
+                </Typography.Text>
+              </Typography.Paragraph>
+              {rawText && (
+                <>
+                  <Divider />
+                  <Typography.Title level={5}>原始输出（LLM）</Typography.Title>
+                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#f5f5f5', padding: 12, borderRadius: 4 }}>
+                    {rawText}
+                  </pre>
+                </>
+              )}
+            </Card>
 
             <div style={{ marginTop: 12 }}>
               <Space>
-                <Button type="primary" onClick={handleSave} loading={loading}>
+                <Button type="primary" onClick={handleSave} loading={loading} size="large">
                   保存到云端
                 </Button>
-                <Button onClick={() => navigator.clipboard?.writeText(JSON.stringify(aiResult, null, 2))}>
-                  复制 JSON
+                <Button onClick={() => navigate('/dashboard')} size="large">
+                  返回列表
                 </Button>
               </Space>
             </div>
-          </Card>
+          </>
         )}
       </div>
     </div>
