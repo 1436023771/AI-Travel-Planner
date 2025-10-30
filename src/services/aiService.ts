@@ -11,64 +11,112 @@ const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
 
 function buildPrompt(input: CreatePlanInput) {
   const days = Math.ceil((new Date(input.endDate).getTime() - new Date(input.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
+  const totalBudget = input.budget || 5000
+  const budgetPerPerson = totalBudget / input.travelers
+  const budgetPerDay = budgetPerPerson / days
   
-  return `你是专业的旅行规划师。请根据用户信息输出 JSON 格式的旅行计划。
+  // 计算建议的预算分配（基于常见比例）
+  const budgetAllocation = {
+    accommodation: Math.round(totalBudget * 0.35), // 住宿 35%
+    food: Math.round(totalBudget * 0.30),          // 餐饮 30%
+    attraction: Math.round(totalBudget * 0.20),    // 景点 20%
+    transport: Math.round(totalBudget * 0.15),     // 交通 15%
+  }
+  
+  return `你是专业的旅行规划师。请严格按照用户预算生成旅行计划。
 
-严格要求：
-1. 仅输出 JSON，不要任何前后文字说明
-2. 每天安排 2-4 个行程项
-3. 描述精简（每项15字内）
-4. **必须包含真实准确的经纬度坐标**（location_lat 和 location_lng）
-5. type 只能是：transport、accommodation、attraction、restaurant 之一
-6. 时间格式：HH:mm（如 "09:00"）
+【重要约束】
+1. 总预算：${totalBudget}元（${input.travelers}人共${days}天）
+2. 人均预算：${Math.round(budgetPerPerson)}元
+3. 日均预算：${Math.round(budgetPerDay)}元/人
+4. 预算分配建议：
+   - 住宿：${budgetAllocation.accommodation}元（${Math.round(budgetAllocation.accommodation/days)}元/晚）
+   - 餐饮：${budgetAllocation.food}元（${Math.round(budgetAllocation.food/days)}元/天）
+   - 景点：${budgetAllocation.attraction}元
+   - 交通：${budgetAllocation.transport}元
+5. 所有 estimated_cost 之和不得超过总预算的 95%
 
-JSON 示例：
+【输出要求】
+1. 仅输出 JSON，不要任何前后文字
+2. 每天 2-4 个行程项
+3. 描述精简（15字内）
+4. 必须包含真实的经纬度坐标
+5. estimated_cost 必须合理且符合预算
+6. type 只能是：transport、accommodation、attraction、restaurant
+
+【费用估算标准】
+- 住宿：根据目的地档次，经济型80-200元/人/晚，中档200-400元/人/晚
+- 餐饮：早餐15-30元，午餐30-60元，晚餐40-80元（人均）
+- 景点：免费景点0元，一般景点30-100元，知名景点100-200元
+- 交通：公共交通2-10元，打车20-50元，长途根据距离
+
+JSON 格式示例：
 {
   "title": "${input.destination}${days}日游",
   "destination": "${input.destination}",
   "start_date": "${input.startDate}",
   "end_date": "${input.endDate}",
-  "budget": ${input.budget || 10000},
+  "budget": ${totalBudget},
   "travelers": ${input.travelers},
   "preferences": {},
   "itinerary_items": [
     {
       "day": 1,
-      "type": "attraction",
-      "title": "天安门广场",
-      "description": "参观天安门",
+      "type": "accommodation",
+      "title": "如家酒店",
+      "description": "经济型酒店",
       "location_lat": 39.9042,
       "location_lng": 116.4074,
-      "address": "北京市东城区",
-      "time_start": "09:00",
-      "time_end": "11:00",
-      "estimated_cost": 0,
+      "address": "市中心",
+      "time_start": "15:00",
+      "time_end": "12:00",
+      "estimated_cost": ${Math.round(budgetAllocation.accommodation/days * input.travelers)},
       "order_index": 0
     },
     {
       "day": 1,
+      "type": "attraction",
+      "title": "天安门广场",
+      "description": "免费景点",
+      "location_lat": 39.9042,
+      "location_lng": 116.4074,
+      "address": "东城区",
+      "time_start": "09:00",
+      "time_end": "11:00",
+      "estimated_cost": 0,
+      "order_index": 1
+    },
+    {
+      "day": 1,
       "type": "restaurant",
-      "title": "全聚德烤鸭",
-      "description": "品尝北京烤鸭",
+      "title": "庆丰包子铺",
+      "description": "人均30元",
       "location_lat": 39.9163,
       "location_lng": 116.4049,
       "address": "前门大街",
       "time_start": "12:00",
-      "time_end": "13:30",
-      "estimated_cost": 200,
-      "order_index": 1
+      "time_end": "13:00",
+      "estimated_cost": ${30 * input.travelers},
+      "order_index": 2
     }
   ]
 }
 
-用户需求：
+【用户需求】
 目的地: ${input.destination}
-日期: ${input.startDate} 至 ${input.endDate}（共${days}天）
-预算: ${input.budget || '不限'}元
-人数: ${input.travelers}人
-偏好: ${input.preferences || '无特殊要求'}
+日期: ${input.startDate} 至 ${input.endDate}（${days}天）
+总预算: ${totalBudget}元（${input.travelers}人）
+人均: ${Math.round(budgetPerPerson)}元
+偏好: ${input.preferences || '性价比优先，控制预算'}
 
-请根据${input.destination}的实际景点，生成包含真实经纬度坐标的完整行程 JSON：`
+【特别提醒】
+- 优先推荐免费或低价景点
+- 选择经济实惠的餐厅
+- 住宿选择性价比高的选项
+- 多使用公共交通
+- 确保总费用不超预算
+
+立即输出符合预算的完整 JSON：`
 }
 
 async function tryBaichuanCall(prompt: string) {

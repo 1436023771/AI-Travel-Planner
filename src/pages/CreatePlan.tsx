@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Card, Form, Input, DatePicker, InputNumber, Button, Space, message, Divider, Table, Typography, Tag } from 'antd'
+import { Card, Form, Input, DatePicker, InputNumber, Button, Space, message, Divider, Table, Typography, Tag, Alert } from 'antd'
 import { SoundOutlined, StopOutlined, EditOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -135,6 +135,11 @@ export const CreatePlan = () => {
   }
 
   const budgetBreakdown = aiResult ? calculateBudgetBreakdown() : null
+  const formBudget = formRef.current?.getFieldValue('budget') || 0
+  const isBudgetExceeded = budgetBreakdown && formBudget > 0 && budgetBreakdown.total > formBudget
+  const budgetUsagePercent = budgetBreakdown && formBudget > 0 
+    ? Math.round((budgetBreakdown.total / formBudget) * 100) 
+    : 0
 
   const columns = [
     {
@@ -273,10 +278,56 @@ export const CreatePlan = () => {
             {budgetBreakdown && (
               <Card style={{ marginBottom: 16 }}>
                 <h3>💰 预算分析</h3>
-                <Space size="large">
+                
+                {/* 预算对比 */}
+                {formBudget > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span>预算使用：</span>
+                      <span style={{ 
+                        fontWeight: 'bold', 
+                        color: isBudgetExceeded ? '#ff4d4f' : budgetUsagePercent > 90 ? '#faad14' : '#52c41a' 
+                      }}>
+                        {budgetUsagePercent}%
+                      </span>
+                    </div>
+                    <div style={{ 
+                      background: '#f0f0f0', 
+                      borderRadius: 4, 
+                      overflow: 'hidden',
+                      height: 20,
+                    }}>
+                      <div style={{ 
+                        width: `${Math.min(budgetUsagePercent, 100)}%`,
+                        height: '100%',
+                        background: isBudgetExceeded ? '#ff4d4f' : budgetUsagePercent > 90 ? '#faad14' : '#52c41a',
+                        transition: 'width 0.3s',
+                      }} />
+                    </div>
+                    <div style={{ 
+                      marginTop: 8, 
+                      fontSize: 12, 
+                      color: isBudgetExceeded ? '#ff4d4f' : '#666' 
+                    }}>
+                      {isBudgetExceeded && '⚠️ 超出预算！'}
+                      预算：¥{formBudget} / 实际：¥{budgetBreakdown.total} / 
+                      {isBudgetExceeded 
+                        ? `超支：¥${budgetBreakdown.total - formBudget}` 
+                        : `剩余：¥${formBudget - budgetBreakdown.total}`
+                      }
+                    </div>
+                  </div>
+                )}
+                
+                {/* 分类预算 */}
+                <Space size="large" wrap>
                   <div>
-                    <div style={{ fontSize: 12, color: '#666' }}>总预算</div>
-                    <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                    <div style={{ fontSize: 12, color: '#666' }}>总计</div>
+                    <div style={{ 
+                      fontSize: 24, 
+                      fontWeight: 'bold', 
+                      color: isBudgetExceeded ? '#ff4d4f' : '#1890ff' 
+                    }}>
                       ¥{budgetBreakdown.total}
                     </div>
                   </div>
@@ -286,11 +337,17 @@ export const CreatePlan = () => {
                     <div style={{ fontSize: 18, fontWeight: 'bold' }}>
                       ¥{budgetBreakdown.transport}
                     </div>
+                    <div style={{ fontSize: 11, color: '#999' }}>
+                      {formBudget > 0 && `${Math.round(budgetBreakdown.transport/formBudget*100)}%`}
+                    </div>
                   </div>
                   <div>
                     <div style={{ fontSize: 12, color: '#666' }}>住宿</div>
                     <div style={{ fontSize: 18, fontWeight: 'bold' }}>
                       ¥{budgetBreakdown.accommodation}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#999' }}>
+                      {formBudget > 0 && `${Math.round(budgetBreakdown.accommodation/formBudget*100)}%`}
                     </div>
                   </div>
                   <div>
@@ -298,14 +355,31 @@ export const CreatePlan = () => {
                     <div style={{ fontSize: 18, fontWeight: 'bold' }}>
                       ¥{budgetBreakdown.attraction}
                     </div>
+                    <div style={{ fontSize: 11, color: '#999' }}>
+                      {formBudget > 0 && `${Math.round(budgetBreakdown.attraction/formBudget*100)}%`}
+                    </div>
                   </div>
                   <div>
                     <div style={{ fontSize: 12, color: '#666' }}>餐饮</div>
                     <div style={{ fontSize: 18, fontWeight: 'bold' }}>
                       ¥{budgetBreakdown.restaurant}
                     </div>
+                    <div style={{ fontSize: 11, color: '#999' }}>
+                      {formBudget > 0 && `${Math.round(budgetBreakdown.restaurant/formBudget*100)}%`}
+                    </div>
                   </div>
                 </Space>
+                
+                {/* 预算建议 */}
+                {isBudgetExceeded && (
+                  <Alert
+                    message="预算超支提醒"
+                    description="当前行程费用超出预算，建议：1) 选择更经济的住宿 2) 减少付费景点 3) 选择平价餐厅 4) 多使用公共交通"
+                    type="warning"
+                    showIcon
+                    style={{ marginTop: 16 }}
+                  />
+                )}
               </Card>
             )}
 
