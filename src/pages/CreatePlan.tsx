@@ -406,36 +406,110 @@ export const CreatePlan = () => {
             )}
 
             {Array.isArray(aiResult.itinerary_items) && aiResult.itinerary_items.length > 0 && (
-              (() => {
-                const sortedAiItems = sortItineraryItems(aiResult.itinerary_items)
-                return (
-                  <>
-                    <Card style={{ marginBottom: 16 }}>
-                      <h3>🗺️ 地图预览</h3>
+              <Card style={{ marginBottom: 16 }}>
+                <h3>🗺️ 地图预览</h3>
+                {(() => {
+                  const sortedAiItems = sortItineraryItems(aiResult.itinerary_items)
+                  
+                  // 检测坐标质量（排除坐标为 0 的点）
+                  const validCoords = sortedAiItems.filter((item: any) => {
+                    const lat = item.location_lat
+                    const lng = item.location_lng
+                    return typeof lat === 'number' && typeof lng === 'number' 
+                           && lat !== 0 && lng !== 0 // 排除坐标为 0
+                           && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+                  })
+                  
+                  const invalidCoords = sortedAiItems.filter((item: any) => {
+                    const lat = item.location_lat
+                    const lng = item.location_lng
+                    return !(typeof lat === 'number' && typeof lng === 'number' 
+                           && lat !== 0 && lng !== 0 
+                           && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)
+                  })
+                  
+                  // 检测重复坐标
+                  const coordMap = new Map<string, number>()
+                  validCoords.forEach((item: any) => {
+                    const key = `${item.location_lat.toFixed(4)},${item.location_lng.toFixed(4)}`
+                    coordMap.set(key, (coordMap.get(key) || 0) + 1)
+                  })
+                  const duplicateCount = Array.from(coordMap.values()).filter(count => count > 1).length
+                  
+                  return (
+                    <>
                       <div style={{ marginBottom: 12, color: '#666', fontSize: 13 }}>
-                        总共 {aiResult.itinerary_items.length} 个行程点，
-                        有效坐标 {aiResult.itinerary_items.filter((item: any) => {
-                          const lat = item.location_lat
-                          const lng = item.location_lng
-                          return typeof lat === 'number' && typeof lng === 'number'
-                        }).length} 个
+                        总共 {sortedAiItems.length} 个行程点，
+                        有效坐标 {validCoords.length} 个
+                        {invalidCoords.length > 0 && (
+                          <span style={{ color: '#ff4d4f', marginLeft: 8 }}>
+                            ({invalidCoords.length} 个无效/缺失坐标将不显示在地图上)
+                          </span>
+                        )}
+                        {duplicateCount > 0 && (
+                          <span style={{ color: '#fa8c16', marginLeft: 8 }}>
+                            ⚠️ {duplicateCount} 组重复坐标
+                          </span>
+                        )}
                       </div>
                       
-                      {/* 显示前3个坐标用于调试 */}
-                      <div style={{ marginBottom: 12, fontSize: 12, color: '#999' }}>
-                        前3个点坐标：
-                        {aiResult.itinerary_items.slice(0, 3).map((item: any, idx: number) => (
-                          <div key={idx}>
-                            {idx + 1}. {item.title}: 
-                            [{item.location_lng}, {item.location_lat}]
-                          </div>
-                        ))}
-                      </div>
+                      {invalidCoords.length > 0 && (
+                        <Alert
+                          message="部分地点缺少准确坐标"
+                          description={
+                            <div>
+                              以下地点将不显示在地图上：
+                              <ul style={{ marginTop: 8, marginBottom: 0 }}>
+                                {invalidCoords.slice(0, 5).map((item: any, idx: number) => (
+                                  <li key={idx}>{item.title}</li>
+                                ))}
+                                {invalidCoords.length > 5 && <li>...还有 {invalidCoords.length - 5} 个</li>}
+                              </ul>
+                              建议重新生成以获得完整坐标。
+                            </div>
+                          }
+                          type="warning"
+                          showIcon
+                          closable
+                          style={{ marginBottom: 12 }}
+                          action={
+                            <Button size="small" onClick={() => handleGenerate()}>
+                              重新生成
+                            </Button>
+                          }
+                        />
+                      )}
+                      
+                      {duplicateCount > 0 && (
+                        <Alert
+                          message="坐标质量提醒"
+                          description="检测到部分地点使用了相同坐标，建议重新生成以获得更精确的位置信息。"
+                          type="warning"
+                          showIcon
+                          closable
+                          style={{ marginBottom: 12 }}
+                          action={
+                            <Button size="small" onClick={() => handleGenerate()}>
+                              重新生成
+                            </Button>
+                          }
+                        />
+                      )}
+                      
+                      {/* 显示前3个有效坐标 */}
+                      {validCoords.length > 0 && (
+                        <div style={{ marginBottom: 12, fontSize: 12, color: '#999' }}>
+                          有效坐标示例（前3个）：
+                          {validCoords.slice(0, 3).map((item: any, idx: number) => (
+                            <div key={idx}>
+                              {idx + 1}. {item.title}: [{item.location_lng}, {item.location_lat}]
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       
                       <MapPreview items={sortedAiItems} height={400} showRoute={true} />
-                    </Card>
-
-                    <Card style={{ marginBottom: 16 }}>
+                      <Divider />
                       <h3>📅 行程安排</h3>
                       <Table
                         columns={columns}
@@ -444,10 +518,10 @@ export const CreatePlan = () => {
                         pagination={false}
                         size="small"
                       />
-                    </Card>
-                  </>
-                )
-              })()
+                    </>
+                  )
+                })()}
+              </Card>
             )}
 
             <Card style={{ marginBottom: 16 }}>

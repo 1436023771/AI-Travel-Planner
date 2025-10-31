@@ -36,13 +36,35 @@ function buildPrompt(input: CreatePlanInput) {
    - 交通：${budgetAllocation.transport}元
 5. 所有 estimated_cost 之和不得超过总预算的 95%
 
+【坐标要求 - 极其重要】
+1. **每个地点必须使用真实准确的经纬度坐标**
+2. **所有坐标必须各不相同**（即使是同一区域的不同景点也要有区别）
+3. **坐标精度要求**：
+   - 纬度(latitude): 保留 4 位小数（如 39.9042）
+   - 经度(longitude): 保留 4 位小数（如 116.4074）
+4. **坐标范围**：
+   - 中国大陆：纬度 18°-54°，经度 73°-135°
+   - 请根据实际城市位置给出准确坐标
+5. **验证方法**：在生成前请确认每个坐标对应的地点名称是否匹配
+
+【坐标示例】（请参考但不要直接复制）
+北京天安门广场: 39.9042, 116.4074
+北京故宫: 39.9163, 116.3972
+北京颐和园: 39.9999, 116.2756
+上海外滩: 31.2397, 121.4912
+上海东方明珠: 31.2398, 121.4990
+杭州西湖: 30.2547, 120.1467
+杭州灵隐寺: 30.2425, 120.0932
+
 【输出要求】
 1. 仅输出 JSON，不要任何前后文字
 2. 每天 2-4 个行程项
 3. 描述精简（15字内）
-4. 必须包含真实的经纬度坐标
+4. **必须包含真实、精确、各不相同的经纬度坐标**
 5. estimated_cost 必须合理且符合预算
 6. type 只能是：transport、accommodation、attraction、restaurant
+7. 同一天内的行程按时间先后顺序排列
+8. order_index 必须连续（0, 1, 2...）
 
 【费用估算标准】
 - 住宿：根据目的地档次，经济型80-200元/人/晚，中档200-400元/人/晚
@@ -50,7 +72,7 @@ function buildPrompt(input: CreatePlanInput) {
 - 景点：免费景点0元，一般景点30-100元，知名景点100-200元
 - 交通：公共交通2-10元，打车20-50元，长途根据距离
 
-JSON 格式示例：
+JSON 格式（请严格遵守坐标格式）：
 {
   "title": "${input.destination}${days}日游",
   "destination": "${input.destination}",
@@ -63,11 +85,11 @@ JSON 格式示例：
     {
       "day": 1,
       "type": "accommodation",
-      "title": "如家酒店",
-      "description": "经济型酒店",
-      "location_lat": 39.9042,
-      "location_lng": 116.4074,
-      "address": "市中心",
+      "title": "市中心经济型酒店",
+      "description": "交通便利",
+      "location_lat": 39.9075,
+      "location_lng": 116.3972,
+      "address": "XX区XX路XX号",
       "time_start": "15:00",
       "time_end": "12:00",
       "estimated_cost": ${Math.round(budgetAllocation.accommodation/days * input.travelers)},
@@ -76,15 +98,41 @@ JSON 格式示例：
     {
       "day": 1,
       "type": "attraction",
-      "title": "天安门广场",
-      "description": "免费景点",
-      "location_lat": 39.9042,
+      "title": "知名景点A",
+      "description": "必游景点",
+      "location_lat": 39.9163,
       "location_lng": 116.4074,
-      "address": "东城区",
+      "address": "景点具体地址",
       "time_start": "09:00",
-      "time_end": "11:00",
-      "estimated_cost": 0,
+      "time_end": "11:30",
+      "estimated_cost": 50,
       "order_index": 1
+    },
+    {
+      "day": 1,
+      "type": "restaurant",
+      "title": "当地特色餐厅",
+      "description": "人均50元",
+      "location_lat": 39.9245,
+      "location_lng": 116.4123,
+      "address": "美食街XX号",
+      "time_start": "12:00",
+      "time_end": "13:00",
+      "estimated_cost": ${50 * input.travelers},
+      "order_index": 2
+    },
+    {
+      "day": 1,
+      "type": "attraction",
+      "title": "景点B（不同位置）",
+      "description": "下午游览",
+      "location_lat": 39.9999,
+      "location_lng": 116.2756,
+      "address": "另一区域地址",
+      "time_start": "14:00",
+      "time_end": "17:00",
+      "estimated_cost": 30,
+      "order_index": 3
     }
   ]
 }
@@ -102,8 +150,11 @@ JSON 格式示例：
 - 住宿选择性价比高的选项
 - 多使用公共交通
 - 确保总费用不超预算
+- **每个地点的经纬度必须准确且各不相同**
+- **请根据${input.destination}的实际地理位置填写真实坐标**
+- **不要使用重复或虚假的坐标**
 
-立即输出符合预算的完整 JSON：`
+请立即输出符合所有要求的完整 JSON（特别注意坐标的准确性和唯一性）：`
 }
 
 async function tryBaichuanCall(prompt: string) {

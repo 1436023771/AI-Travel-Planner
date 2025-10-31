@@ -102,6 +102,8 @@ export function renderMarkers(map: any, items: ItineraryItem[]) {
 
   const createdMarkers: any[] = []
   const validPositions: [number, number][] = []
+  const coordinateMap = new Map<string, string[]>() // 用于检测重复坐标
+  let skippedCount = 0
 
   console.log(`📍 开始渲染 ${items.length} 个行程点...`)
 
@@ -111,31 +113,60 @@ export function renderMarkers(map: any, items: ItineraryItem[]) {
 
     console.log(`  第 ${idx + 1} 项 "${item.title}":`, { lat, lng })
 
+    // 跳过无效坐标
     if (typeof lat !== 'number' || typeof lng !== 'number') {
-      console.warn(`  ⚠️ 跳过：坐标无效`)
+      console.warn(`  ⚠️ 跳过：坐标类型无效`)
+      skippedCount++
       return
     }
 
-    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      console.warn(`  ⚠️ 跳过：坐标超出范围`)
+    // 跳过坐标为 0 的点（通常是无效或占位坐标）
+    if (lat === 0 && lng === 0) {
+      console.warn(`  ⚠️ 跳过：坐标为 (0, 0)，可能是无效坐标`)
+      skippedCount++
       return
     }
+
+    // 跳过坐标为 0 的点（单独为 0 也跳过）
+    if (lat === 0 || lng === 0) {
+      console.warn(`  ⚠️ 跳过：坐标包含 0，可能是无效坐标`)
+      skippedCount++
+      return
+    }
+
+    // 跳过超出有效范围的坐标
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      console.warn(`  ⚠️ 跳过：坐标超出有效范围 (lat: ${lat}, lng: ${lng})`)
+      skippedCount++
+      return
+    }
+
+    // 中国大陆坐标范围检查（可选，如果只做国内旅行）
+    // if (lat < 18 || lat > 54 || lng < 73 || lng > 135) {
+    //   console.warn(`  ⚠️ 警告：坐标不在中国大陆范围内 (lat: ${lat}, lng: ${lng})`)
+    // }
+
+    // 检测重复坐标
+    const coordKey = `${lat.toFixed(4)},${lng.toFixed(4)}`
+    if (!coordinateMap.has(coordKey)) {
+      coordinateMap.set(coordKey, [])
+    }
+    coordinateMap.get(coordKey)!.push(item.title)
 
     try {
-      // 简化的标记配置
       const marker = new AMap.Marker({
         position: new AMap.LngLat(lng, lat),
         title: item.title,
-        map: map, // 直接设置 map
+        map: map,
       })
 
-      // 简单的点击事件
       marker.on('click', () => {
         const info = new AMap.InfoWindow({
           content: `<div style="padding: 10px;">
             <strong>${item.title}</strong><br/>
             ${item.description || ''}<br/>
-            ${item.address || ''}
+            ${item.address || ''}<br/>
+            <small style="color: #999;">坐标: ${lat.toFixed(4)}, ${lng.toFixed(4)}</small>
           </div>`,
         })
         info.open(map, marker.getPosition())
@@ -146,17 +177,35 @@ export function renderMarkers(map: any, items: ItineraryItem[]) {
       console.log(`  ✅ 标记已创建并添加到地图`)
     } catch (error) {
       console.error(`  ❌ 创建标记失败:`, error)
+      skippedCount++
     }
   })
+
+  // 检查并警告重复坐标
+  const duplicates = Array.from(coordinateMap.entries()).filter(([_, titles]) => titles.length > 1)
+  if (duplicates.length > 0) {
+    console.warn('⚠️ 检测到重复坐标：')
+    duplicates.forEach(([coord, titles]) => {
+      console.warn(`  坐标 ${coord} 被以下地点共用：`, titles.join(', '))
+    })
+  }
 
   // 调整视野
   if (validPositions.length > 0) {
     try {
       map.setFitView(createdMarkers)
       console.log(`✅ 已渲染 ${createdMarkers.length} 个标记`)
+      if (skippedCount > 0) {
+        console.log(`⚠️ 跳过了 ${skippedCount} 个无效坐标`)
+      }
+      if (duplicates.length > 0) {
+        console.log(`⚠️ 其中 ${duplicates.length} 组坐标重复`)
+      }
     } catch (error) {
       console.error('❌ 设置视野失败:', error)
     }
+  } else {
+    console.warn('⚠️ 没有有效的坐标点可以渲染')
   }
 
   return createdMarkers
@@ -182,15 +231,19 @@ export function drawPolyline(map: any, items: ItineraryItem[]) {
     const lat = (item as any).location_lat ?? (item as any).location?.lat
     const lng = (item as any).location_lng ?? (item as any).location?.lng
 
+    // 过滤掉无效坐标（包括 0）
     if (typeof lat === 'number' && typeof lng === 'number' &&
+        lat !== 0 && lng !== 0 && // 跳过坐标为 0 的点
         lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
       path.push(new AMap.LngLat(lng, lat))
-      console.log(`  点 ${idx + 1}: [${lng}, ${lat}]`)
+      console.log(`  点 ${idx + 1}: [${lng}, ${lat}] - ${item.title}`)
+    } else {
+      console.warn(`  ⚠️ 跳过点 ${idx + 1} "${item.title}"：坐标无效或为 0`)
     }
   })
 
   if (path.length < 2) {
-    console.warn('⚠️ 有效点不足2个')
+    console.warn('⚠️ 有效坐标点不足2个，无法绘制路线')
     return null
   }
 
@@ -200,7 +253,7 @@ export function drawPolyline(map: any, items: ItineraryItem[]) {
       strokeColor: '#1890ff',
       strokeWeight: 4,
       strokeOpacity: 0.8,
-      map: map, // 直接设置 map
+      map: map,
     })
 
     console.log(`✅ 路线绘制成功，${path.length} 个点`)

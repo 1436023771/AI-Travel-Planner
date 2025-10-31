@@ -85,3 +85,55 @@ export function calculateNewOrderIndex(
   // 如果比所有现有时间都晚，放在最后
   return sameDayItems.length
 }
+
+/**
+ * 验证坐标是否有效
+ */
+export function isValidCoordinate(lat: any, lng: any): boolean {
+  return typeof lat === 'number' && 
+         typeof lng === 'number' && 
+         lat !== 0 && 
+         lng !== 0 && 
+         lat >= -90 && 
+         lat <= 90 && 
+         lng >= -180 && 
+         lng <= 180
+}
+
+/**
+ * 过滤出有有效坐标的行程项
+ */
+export function filterValidCoordinates(items: ItineraryItem[]): ItineraryItem[] {
+  return items.filter(item => {
+    const lat = (item as any).location_lat ?? (item as any).location?.lat
+    const lng = (item as any).location_lng ?? (item as any).location?.lng
+    return isValidCoordinate(lat, lng)
+  })
+}
+
+/**
+ * 统计坐标质量
+ */
+export function analyzeCoordinateQuality(items: ItineraryItem[]): {
+  total: number
+  valid: number
+  invalid: number
+  duplicates: number
+} {
+  const total = items.length
+  const validItems = filterValidCoordinates(items)
+  const valid = validItems.length
+  const invalid = total - valid
+  
+  // 检测重复坐标
+  const coordMap = new Map<string, number>()
+  validItems.forEach(item => {
+    const lat = (item as any).location_lat ?? (item as any).location?.lat
+    const lng = (item as any).location_lng ?? (item as any).location?.lng
+    const key = `${lat.toFixed(4)},${lng.toFixed(4)}`
+    coordMap.set(key, (coordMap.get(key) || 0) + 1)
+  })
+  const duplicates = Array.from(coordMap.values()).filter(count => count > 1).length
+  
+  return { total, valid, invalid, duplicates }
+}
