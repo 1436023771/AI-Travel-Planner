@@ -8,6 +8,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { CreatePlan } from './pages/CreatePlan';
+import { PlanDetail } from './pages/PlanDetail';
 import { useAuthStore } from './store/authStore';
 import './App.css';
 
@@ -64,6 +65,11 @@ function App() {
             <Route path="create" element={
               <ProtectedRoute>
                 <CreatePlan />
+              </ProtectedRoute>
+            } />
+            <Route path="plan/:id" element={
+              <ProtectedRoute>
+                <PlanDetail />
               </ProtectedRoute>
             } />
           </Route>

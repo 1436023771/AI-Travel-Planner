@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Card, Spin, Divider, Tabs, Timeline, Tag, Button, Space } from 'antd'
-import { CalendarOutlined, EnvironmentOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { Card, Spin, Divider, Tabs, Timeline, Tag, Button, Space, message } from 'antd'
+import { CalendarOutlined, EnvironmentOutlined, ClockCircleOutlined, ShareAltOutlined, DownloadOutlined, CopyOutlined } from '@ant-design/icons'
 import { planService } from '@/services/planService'
 import { MapPreview } from '@/components/MapPreview'
+import { ExpenseTracker } from '@/components/ExpenseTracker'
+import { ItineraryEditor } from '@/components/ItineraryEditor'
+import { shareUtils } from '@/utils/shareUtils'
+import { sortItineraryItems } from '@/utils/itineraryUtils'
 import type { TravelPlan, ItineraryItem } from '@/types/plan'
 
 export const PlanDetail = () => {
@@ -19,9 +23,11 @@ export const PlanDetail = () => {
     planService.getPlanById(id)
       .then((p) => {
         setPlan(p as TravelPlan)
+        setError(null)
       })
       .catch((e) => {
         setError(e.message || '加载失败')
+        setPlan(null)
       })
       .finally(() => setLoading(false))
   }, [id])
@@ -42,9 +48,11 @@ export const PlanDetail = () => {
     return <div style={{ padding: 24 }}>未找到该计划</div>
   }
 
-  const items: ItineraryItem[] = (plan.itinerary_items || []) as ItineraryItem[]
+  // 使用统一的排序工具函数
+  const itemsRaw: ItineraryItem[] = (plan.itinerary_items || []) as ItineraryItem[]
+  const items: ItineraryItem[] = sortItineraryItems(itemsRaw)
 
-  // 按天分组
+  // 按天分组（每组内已为时间顺序）
   const itemsByDay = items.reduce((acc, item) => {
     const day = item.day || 1
     if (!acc[day]) acc[day] = []
@@ -64,6 +72,21 @@ export const PlanDetail = () => {
     return icons[type] || '📍'
   }
 
+  const handleShare = async () => {
+    const text = shareUtils.generateTextItinerary(plan!, items)
+    const success = await shareUtils.copyToClipboard(text)
+    if (success) {
+      message.success('行程已复制到剪贴板')
+    } else {
+      message.error('复制失败')
+    }
+  }
+
+  const handleDownload = () => {
+    shareUtils.downloadAsText(plan!, items)
+    message.success('下载成功')
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{ marginBottom: 24 }}>
@@ -78,6 +101,26 @@ export const PlanDetail = () => {
           <span>👥 {plan.travelers} 人</span>
           {plan.budget && <span>💰 预算 ¥{plan.budget}</span>}
         </Space>
+        <div style={{ marginTop: 16 }}>
+          <Space>
+            <Button icon={<CopyOutlined />} onClick={handleShare}>
+              复制行程
+            </Button>
+            <Button icon={<DownloadOutlined />} onClick={handleDownload}>
+              导出文本
+            </Button>
+            <Button 
+              icon={<ShareAltOutlined />}
+              onClick={() => {
+                const link = shareUtils.generateShareLink(id!)
+                shareUtils.copyToClipboard(link)
+                message.success('分享链接已复制')
+              }}
+            >
+              分享链接
+            </Button>
+          </Space>
+        </div>
       </div>
 
       <Divider />
@@ -181,6 +224,29 @@ export const PlanDetail = () => {
                     </Card>
                   ))}
                 </div>
+              ),
+            },
+            {
+              key: 'edit',
+              label: '✏️ 编辑行程',
+              children: (
+                <ItineraryEditor
+                  planId={id!}
+                  items={items}
+                  onUpdate={() => {
+                    // 重新加载计划数据
+                    planService.getPlanById(id!)
+                      .then((p) => setPlan(p as TravelPlan))
+                      .catch((e) => setError(e.message))
+                  }}
+                />
+              ),
+            },
+            {
+              key: 'expenses',
+              label: '💰 费用管理',
+              children: (
+                <ExpenseTracker planId={id!} budget={plan?.budget} />
               ),
             },
           ]}

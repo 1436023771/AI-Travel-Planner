@@ -9,6 +9,7 @@ import { planService } from '@/services/planService'
 import { MapPreview } from '@/components/MapPreview'
 import { useAuthStore } from '@/store/authStore'
 import type { CreatePlanInput } from '@/types/plan'
+import { sortItineraryItems } from '@/utils/itineraryUtils'
 
 const { RangePicker } = DatePicker
 const recorder = createVoiceRecorder()
@@ -97,10 +98,31 @@ export const CreatePlan = () => {
       message.error('请先生成行程')
       return
     }
+    
     setLoading(true)
     try {
-      await planService.savePlan(user.id, aiResult)
-      message.success('旅行计划已保存')
+      // 保存前对行程重新排序并分配 order_index
+      const sortedItems = sortItineraryItems(aiResult.itinerary_items || [])
+      const itemsWithIndex = sortedItems.map((item, index) => ({
+        ...item,
+        order_index: index,
+      }))
+      
+      await planService.savePlan(user.id, {
+        ...aiResult,
+        itinerary_items: itemsWithIndex,
+      })
+      
+      const expenseCount = itemsWithIndex.filter(item => (item.estimated_cost ?? 0) > 0).length
+      message.success({
+        content: (
+          <span>
+            旅行计划已保存！已自动创建 {expenseCount} 条费用记录
+          </span>
+        ),
+        duration: 3,
+      })
+      
       setTimeout(() => {
         navigate('/dashboard')
       }, 1000)
@@ -384,47 +406,48 @@ export const CreatePlan = () => {
             )}
 
             {Array.isArray(aiResult.itinerary_items) && aiResult.itinerary_items.length > 0 && (
-              <Card style={{ marginBottom: 16 }}>
-                <h3>🗺️ 地图预览</h3>
-                <div style={{ marginBottom: 12, color: '#666', fontSize: 13 }}>
-                  总共 {aiResult.itinerary_items.length} 个行程点，
-                  有效坐标 {aiResult.itinerary_items.filter((item: any) => {
-                    const lat = item.location_lat
-                    const lng = item.location_lng
-                    return typeof lat === 'number' && typeof lng === 'number'
-                  }).length} 个
-                </div>
-                
-                {/* 显示前3个坐标用于调试 */}
-                <div style={{ marginBottom: 12, fontSize: 12, color: '#999' }}>
-                  前3个点坐标：
-                  {aiResult.itinerary_items.slice(0, 3).map((item: any, idx: number) => (
-                    <div key={idx}>
-                      {idx + 1}. {item.title}: 
-                      [{item.location_lng}, {item.location_lat}]
-                    </div>
-                  ))}
-                </div>
-                
-                <MapPreview 
-                  items={aiResult.itinerary_items} 
-                  height={400} 
-                  showRoute={true}
-                />
-              </Card>
-            )}
+              (() => {
+                const sortedAiItems = sortItineraryItems(aiResult.itinerary_items)
+                return (
+                  <>
+                    <Card style={{ marginBottom: 16 }}>
+                      <h3>🗺️ 地图预览</h3>
+                      <div style={{ marginBottom: 12, color: '#666', fontSize: 13 }}>
+                        总共 {aiResult.itinerary_items.length} 个行程点，
+                        有效坐标 {aiResult.itinerary_items.filter((item: any) => {
+                          const lat = item.location_lat
+                          const lng = item.location_lng
+                          return typeof lat === 'number' && typeof lng === 'number'
+                        }).length} 个
+                      </div>
+                      
+                      {/* 显示前3个坐标用于调试 */}
+                      <div style={{ marginBottom: 12, fontSize: 12, color: '#999' }}>
+                        前3个点坐标：
+                        {aiResult.itinerary_items.slice(0, 3).map((item: any, idx: number) => (
+                          <div key={idx}>
+                            {idx + 1}. {item.title}: 
+                            [{item.location_lng}, {item.location_lat}]
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <MapPreview items={sortedAiItems} height={400} showRoute={true} />
+                    </Card>
 
-            {Array.isArray(aiResult.itinerary_items) && aiResult.itinerary_items.length > 0 && (
-              <Card style={{ marginBottom: 16 }}>
-                <h3>📅 行程安排</h3>
-                <Table
-                  columns={columns}
-                  dataSource={aiResult.itinerary_items}
-                  rowKey={(record, index) => `${record.day}-${index}`}
-                  pagination={false}
-                  size="small"
-                />
-              </Card>
+                    <Card style={{ marginBottom: 16 }}>
+                      <h3>📅 行程安排</h3>
+                      <Table
+                        columns={columns}
+                        dataSource={sortedAiItems}
+                        rowKey={(record, index) => `${record.day}-${index}`}
+                        pagination={false}
+                        size="small"
+                      />
+                    </Card>
+                  </>
+                )
+              })()
             )}
 
             <Card style={{ marginBottom: 16 }}>

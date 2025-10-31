@@ -85,19 +85,6 @@ JSON 格式示例：
       "time_end": "11:00",
       "estimated_cost": 0,
       "order_index": 1
-    },
-    {
-      "day": 1,
-      "type": "restaurant",
-      "title": "庆丰包子铺",
-      "description": "人均30元",
-      "location_lat": 39.9163,
-      "location_lng": 116.4049,
-      "address": "前门大街",
-      "time_start": "12:00",
-      "time_end": "13:00",
-      "estimated_cost": ${30 * input.travelers},
-      "order_index": 2
     }
   ]
 }
