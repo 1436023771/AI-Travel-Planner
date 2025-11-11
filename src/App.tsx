@@ -10,46 +10,27 @@ import { Dashboard } from './pages/Dashboard';
 import { CreatePlan } from './pages/CreatePlan';
 import { PlanDetail } from './pages/PlanDetail';
 import { useAuthStore } from './store/authStore';
+import { Home } from './pages/Home';
 import './App.css';
-
-const Home = () => {
-  const { user } = useAuthStore();
-
-  return (
-    <div className="app">
-      <header className="app-header">
-        <h1>🌍 AI Travel Planner</h1>
-        <p>智能旅行规划助手</p>
-      </header>
-      
-      <main className="app-main">
-        <div className="card">
-          <h2>项目初始化成功！</h2>
-          <p>✅ 阶段一已完成</p>
-          <ul style={{ textAlign: 'left', marginTop: 20 }}>
-            <li>✅ React + TypeScript + Vite 项目搭建</li>
-            <li>✅ Ant Design UI 组件库集成</li>
-            <li>✅ Supabase 认证配置</li>
-            <li>✅ 路由系统实现</li>
-            <li>✅ 用户认证功能</li>
-          </ul>
-          {!user && (
-            <p style={{ marginTop: 20, color: '#666' }}>
-              请先登录或注册以体验完整功能
-            </p>
-          )}
-        </div>
-      </main>
-    </div>
-  )
-}
+import { configManager } from './utils/configManager';
+import { migrateEnvToSupabase } from './utils/migrateEnvToSupabase';
 
 function App() {
-  const { checkAuth } = useAuthStore()
+  const { checkAuth, user } = useAuthStore()
 
   useEffect(() => {
+    configManager.init()
     checkAuth()
   }, [checkAuth])
+
+  useEffect(() => {
+    if (user) {
+      migrateEnvToSupabase(user.id).then(migrated => {
+        // 始终从 Supabase 加载最新配置（无论是否迁移）
+        configManager.loadUserConfig(user.id)
+      })
+    }
+  }, [user])
 
   return (
     <ConfigProvider locale={zhCN}>

@@ -1,13 +1,12 @@
 import type { TravelPlan, CreatePlanInput } from '@/types/plan'
+import { configManager } from '@/utils/configManager'
 
-const LLM_PROVIDER = (import.meta.env.VITE_LLM_PROVIDER || 'baichuan').toLowerCase()
-
-const BAICHUAN_ENDPOINT = import.meta.env.VITE_BAICHUAN_ENDPOINT || ''
-const BAICHUAN_API_KEY = import.meta.env.VITE_BAICHUAN_API_KEY || ''
-const BAICHUAN_MODEL = import.meta.env.VITE_BAICHUAN_MODEL || ''
-
-const OPENAI_URL = import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1'
-const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
+// 使用配置管理器获取配置
+const getBaichuanConfig = () => ({
+  endpoint: configManager.getBaichuanEndpoint(),
+  apiKey: configManager.getBaichuanKey(),
+  model: configManager.getBaichuanModel(),
+})
 
 function buildPrompt(input: CreatePlanInput) {
   const days = Math.ceil((new Date(input.endDate).getTime() - new Date(input.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
@@ -158,23 +157,25 @@ JSON 格式（请严格遵守坐标格式）：
 }
 
 async function tryBaichuanCall(prompt: string) {
-  if (!BAICHUAN_ENDPOINT || !BAICHUAN_API_KEY) {
+  const config = getBaichuanConfig()
+  
+  if (!config.endpoint || !config.apiKey) {
     return { ok: false, reason: 'missing_config' as const }
   }
 
-  const isChatEndpoint = /chat|completions/i.test(BAICHUAN_ENDPOINT)
+  const isChatEndpoint = /chat|completions/i.test(config.endpoint)
 
   const candidates: any[] = []
 
   if (isChatEndpoint) {
-    if (!BAICHUAN_MODEL) {
+    if (!config.model) {
       return { ok: false, reason: 'missing_model' as const }
     }
     candidates.push({
-      model: BAICHUAN_MODEL,
+      model: config.model,
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.1, // 降低温度提高确定性
-      max_tokens: 8000, // 大幅增加 token 限制
+      temperature: 0.1,
+      max_tokens: 8000,
     })
   }
 
@@ -188,11 +189,11 @@ async function tryBaichuanCall(prompt: string) {
 
   for (const body of candidates) {
     try {
-      const resp = await fetch(BAICHUAN_ENDPOINT, {
+      const resp = await fetch(config.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${BAICHUAN_API_KEY}`,
+          Authorization: `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify(body),
       })
@@ -279,105 +280,43 @@ export const aiService = {
   async generateItinerary(input: CreatePlanInput): Promise<{ plan: Partial<TravelPlan> | null; raw: string }> {
     const prompt = buildPrompt(input)
 
-    if (LLM_PROVIDER === 'baichuan') {
-      const resp = await tryBaichuanCall(prompt)
-      if (resp.ok) {
-        const { text } = resp
-        const { content } = extractContentFromBaichuanText(text)
-        
-        // 尝试解析 content 为 JSON plan
-        try {
-          const parsedPlan = JSON.parse(content)
-          return { plan: parsedPlan as Partial<TravelPlan>, raw: content }
-        } catch (parseError) {
-          // JSON 解析失败，检查是否被截断
-          console.warn('JSON 解析失败，尝试修复截断...', parseError)
-          
-          if (isJsonTruncated(content)) {
-            const fixed = tryFixTruncatedJson(content)
-            try {
-              const parsedPlan = JSON.parse(fixed)
-              console.log('✅ JSON 修复成功')
-              return { plan: parsedPlan as Partial<TravelPlan>, raw: `${content}\n\n[已自动修复截断]` }
-            } catch {
-              console.error('❌ JSON 修复失败')
-              return { plan: null, raw: `${content}\n\n[JSON 被截断且无法自动修复]` }
-            }
-          }
-          
-          // 不是截断问题，返回原始文本
-          return { plan: null, raw: content }
-        }
-      } else {
-        if (resp.reason === 'missing_config') {
-          const msg = 'Baichuan 配置缺失（VITE_BAICHUAN_ENDPOINT/VITE_BAICHUAN_API_KEY）。'
-          if (!OPENAI_KEY) throw new Error(msg + ' 且未配置 OpenAI 回退。')
-          console.warn(msg + ' 尝试 OpenAI 回退。')
-        } else if (resp.reason === 'missing_model') {
-          const msg = 'Baichuan 端点需要 model 参数（VITE_BAICHUAN_MODEL 未配置）。请在 .env.local 中设置 VITE_BAICHUAN_MODEL。'
-          if (!OPENAI_KEY) throw new Error(msg + ' 且未配置 OpenAI 回退。')
-          console.warn(msg + ' 尝试 OpenAI 回退。')
-        } else {
-          const errInfo = resp.error ? `status=${resp.error.status} body=${resp.error.text}` : 'unknown error'
-          if (!OPENAI_KEY) {
-            throw new Error(`Baichuan 请求失败，且未配置 OpenAI 回退。详细信息：${errInfo}`)
-          } else {
-            console.warn('Baichuan 请求失败，尝试使用 OpenAI 回退。详情：', errInfo)
-          }
-        }
-      }
-    }
-
-    if (OPENAI_KEY) {
+    const resp = await tryBaichuanCall(prompt)
+    if (resp.ok) {
+      const { text } = resp
+      const { content } = extractContentFromBaichuanText(text)
+      
+      // 尝试解析 content 为 JSON plan
       try {
-        const body = {
-          model: 'gpt-4',
-          messages: [
-            { role: 'system', content: '你是专业的旅行规划师。输出仅为完整 JSON，描述简洁。' },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.1,
-          max_tokens: 8000, // 增加 OpenAI token 限制
-        }
-
-        const resp = await fetch(`${OPENAI_URL}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${OPENAI_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        })
-
-        if (!resp.ok) {
-          const t = await resp.text()
-          throw new Error(`OpenAI error: ${resp.status} ${t}`)
-        }
-
-        const data = await resp.json()
-        const content = data.choices?.[0]?.message?.content ?? ''
+        const parsedPlan = JSON.parse(content)
+        return { plan: parsedPlan as Partial<TravelPlan>, raw: content }
+      } catch (parseError) {
+        // JSON 解析失败，检查是否被截断
+        console.warn('JSON 解析失败，尝试修复截断...', parseError)
         
-        try {
-          const parsed = JSON.parse(content)
-          return { plan: parsed as Partial<TravelPlan>, raw: content }
-        } catch (parseError) {
-          // 尝试修复截断
-          if (isJsonTruncated(content)) {
-            const fixed = tryFixTruncatedJson(content)
-            try {
-              const parsed = JSON.parse(fixed)
-              return { plan: parsed as Partial<TravelPlan>, raw: `${content}\n\n[已自动修复截断]` }
-            } catch {
-              return { plan: null, raw: `${content}\n\n[JSON 被截断且无法自动修复]` }
-            }
+        if (isJsonTruncated(content)) {
+          const fixed = tryFixTruncatedJson(content)
+          try {
+            const parsedPlan = JSON.parse(fixed)
+            console.log('✅ JSON 修复成功')
+            return { plan: parsedPlan as Partial<TravelPlan>, raw: `${content}\n\n[已自动修复截断]` }
+          } catch {
+            console.error('❌ JSON 修复失败')
+            return { plan: null, raw: `${content}\n\n[JSON 被截断且无法自动修复]` }
           }
-          return { plan: null, raw: content }
         }
-      } catch (e) {
-        throw e
+        
+        // 不是截断问题，返回原始文本
+        return { plan: null, raw: content }
+      }
+    } else {
+      if (resp.reason === 'missing_config') {
+        throw new Error('阿里百炼配置缺失（请在首页配置 API 密钥）')
+      } else if (resp.reason === 'missing_model') {
+        throw new Error('需要配置模型名称（请在首页设置 BAICHUAN_MODEL，例如：qwen-turbo）')
+      } else {
+        const errInfo = resp.error ? `status=${resp.error.status} body=${resp.error.text}` : 'unknown error'
+        throw new Error(`AI 服务请求失败：${errInfo}`)
       }
     }
-
-    throw new Error('未配置可用的 LLM 提供商（请检查 VITE_BAICHUAN_ENDPOINT/VITE_BAICHUAN_API_KEY/VITE_BAICHUAN_MODEL 或 VITE_OPENAI_API_KEY）。')
   },
 }

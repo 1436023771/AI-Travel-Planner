@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
-import { Card, Form, Input, DatePicker, InputNumber, Button, Space, message, Divider, Table, Typography, Tag, Alert } from 'antd'
-import { SoundOutlined, StopOutlined, EditOutlined } from '@ant-design/icons'
+import { Card, Form, Input, DatePicker, InputNumber, Button, Space, message, Divider, Table, Typography, Tag, Alert, Collapse } from 'antd'
+import { SoundOutlined, StopOutlined, EditOutlined, CodeOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { aiService } from '@/services/aiService'
@@ -524,27 +524,52 @@ export const CreatePlan = () => {
               </Card>
             )}
 
-            <Card style={{ marginBottom: 16 }}>
-              <Typography.Paragraph>
-                <Typography.Text
-                  copyable={{
-                    text: JSON.stringify(aiResult, null, 2),
-                  }}
-                >
-                  点击复制完整 JSON
-                </Typography.Text>
-              </Typography.Paragraph>
-              {rawText && (
-                <>
-                  <Divider />
-                  <Typography.Title level={5}>原始输出（LLM）</Typography.Title>
-                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#f5f5f5', padding: 12, borderRadius: 4 }}>
-                    {rawText}
-                  </pre>
-                </>
-              )}
-            </Card>
+            {/* 原始 JSON 输出 - 使用 Collapse 折叠 */}
+            {rawText && (
+              <Card style={{ marginBottom: 16 }}>
+                <Collapse
+                  items={[
+                    {
+                      key: 'raw',
+                      label: (
+                        <Space>
+                          <CodeOutlined />
+                          <span>查看 LLM 原始输出（调试用）</span>
+                        </Space>
+                      ),
+                      children: (
+                        <div>
+                          <Typography.Paragraph>
+                            <Typography.Text
+                              copyable={{
+                                text: rawText,
+                                tooltips: ['复制原始输出', '已复制！'],
+                              }}
+                            >
+                              点击复制
+                            </Typography.Text>
+                          </Typography.Paragraph>
+                          <pre style={{ 
+                            whiteSpace: 'pre-wrap', 
+                            wordBreak: 'break-word', 
+                            background: '#f5f5f5', 
+                            padding: 12, 
+                            borderRadius: 4,
+                            maxHeight: 400,
+                            overflow: 'auto',
+                          }}>
+                            {rawText}
+                          </pre>
+                        </div>
+                      ),
+                    },
+                  ]}
+                  ghost
+                />
+              </Card>
+            )}
 
+            {/* 操作按钮 */}
             <div style={{ marginTop: 12 }}>
               <Space>
                 <Button type="primary" onClick={handleSave} loading={loading} size="large">

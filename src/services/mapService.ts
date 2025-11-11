@@ -1,7 +1,10 @@
 import AMapLoader from '@amap/amap-jsapi-loader'
 import type { ItineraryItem } from '@/types/plan'
+import { configManager } from '@/utils/configManager'
 
-const AMAP_KEY = import.meta.env.VITE_AMAP_KEY || ''
+// 使用配置管理器获取高德地图 Key
+const getAmapKey = () => configManager.getAmapKey()
+
 const AMAP_VERSION = '2.0'
 const AMAP_PLUGINS = ['AMap.Marker', 'AMap.Polyline', 'AMap.ToolBar', 'AMap.Scale']
 
@@ -9,8 +12,10 @@ let amapLoadPromise: Promise<any> | null = null
 
 // 确保高德地图只加载一次
 async function ensureAmapLoaded() {
-  if (!AMAP_KEY) {
-    throw new Error('VITE_AMAP_KEY 未配置，请在 .env.local 中设置高德地图 API Key')
+  const amapKey = getAmapKey()
+  
+  if (!amapKey) {
+    throw new Error('高德地图 API Key 未配置，请在首页配置或检查 .env.local 文件')
   }
 
   // 如果已经加载，直接返回
@@ -25,7 +30,7 @@ async function ensureAmapLoaded() {
 
   // 开始加载
   amapLoadPromise = AMapLoader.load({
-    key: AMAP_KEY,
+    key: amapKey,
     version: AMAP_VERSION,
     plugins: AMAP_PLUGINS,
   })

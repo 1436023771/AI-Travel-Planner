@@ -215,6 +215,53 @@ CREATE POLICY "Users can delete expenses of own plans"
   );
 ```
 
+### 创建用户配置表
+
+在 Supabase Dashboard 的 SQL Editor 中执行：
+
+```sql
+-- 用户 API 配置表（加密存储）
+CREATE TABLE IF NOT EXISTS user_api_config (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  baichuan_endpoint TEXT,
+  baichuan_key TEXT, -- 加密存储
+  baichuan_model TEXT,
+  amap_key TEXT, -- 加密存储
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 启用 RLS
+ALTER TABLE user_api_config ENABLE ROW LEVEL SECURITY;
+
+-- 删除旧策略（如果存在）
+DROP POLICY IF EXISTS "Users can view own config" ON user_api_config;
+DROP POLICY IF EXISTS "Users can insert own config" ON user_api_config;
+DROP POLICY IF EXISTS "Users can update own config" ON user_api_config;
+DROP POLICY IF EXISTS "Users can delete own config" ON user_api_config;
+
+-- RLS 策略：用户只能访问自己的配置
+CREATE POLICY "Users can view own config"
+  ON user_api_config FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own config"
+  ON user_api_config FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own config"
+  ON user_api_config FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own config"
+  ON user_api_config FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_user_api_config_user_id ON user_api_config(user_id);
+```
+
 ### 创建索引以提升性能
 ```sql
 -- 创建索引

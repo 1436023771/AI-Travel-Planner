@@ -52,8 +52,7 @@ Web版AI旅行规划师，通过AI技术简化旅行规划过程，自动生成�
 
 #### 第三方API
 - **地图服务**: 高德地图 Web API
-- **语音识别**: 科大讯飞语音听写 WebAPI
-- **LLM服务**: OpenAI GPT-4 / 通义千问
+- **LLM服务**: 阿里百炼（通义千问）
 
 ### 2.2 系统架构图
 
@@ -72,7 +71,7 @@ Web版AI旅行规划师，通过AI技术简化旅行规划过程，自动生成�
 ┌─────────────────────────────────────────────┐
 │              API Gateway 层                  │
 ├─────────────────────────────────────────────┤
-│  科大讯飞API │ 高德地图API │ OpenAI API      │
+│  高德地图API │ 阿里百炼API                     │
 └─────────────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────────┐
@@ -287,6 +286,7 @@ interface MapService {
 - [x] Supabase配置
 - [x] 路由与布局
 - [x] 用户认证
+- [x] 首页 API 配置界面
 
 ### 阶段二：核心功能 (Week 3-6)
 - [x] 语音识别集成
@@ -349,14 +349,13 @@ interface MapService {
 ```env
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_BAICHUAN_ENDPOINT=
+VITE_BAICHUAN_API_KEY=
+VITE_BAICHUAN_MODEL=
 VITE_AMAP_KEY=
-VITE_XFYUN_APP_ID=
-VITE_XFYUN_API_KEY=
-VITE_OPENAI_API_KEY=
 ```
 
 ### 参考资源
 - [Supabase Documentation](https://supabase.com/docs)
 - [高德地图API](https://lbs.amap.com/)
-- [科大讯飞WebAPI](https://www.xfyun.cn/doc/asr/voicedictation/API.html)
-- [OpenAI API](https://platform.openai.com/docs)
+- [阿里云百炼](https://dashscope.aliyun.com/)

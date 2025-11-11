@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
+import { configManager } from '@/utils/configManager'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// 使用配置管理器获取配置
+const supabaseUrl = configManager.getSupabaseUrl()
+const supabaseAnonKey = configManager.getSupabaseKey()
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase 环境变量未配置，某些功能可能无法使用')
+  console.warn('Supabase 配置缺失，请在首页配置或检查 .env.local 文件')
 }
 
 export const supabase = createClient(
