@@ -39,6 +39,37 @@ npm run dev
 
 访问 http://localhost:3000
 
+## 快速开始（使用公开镜像）
+
+如果你不想自己构建，可以直接使用我们提供的公开镜像：
+
+### 拉取镜像
+
+```bash
+docker pull crpi-icgszf47r31p3mkt.cn-hangzhou.personal.cr.aliyuncs.com/ai-travel-planner/ai-travel-planner:latest
+```
+
+### 运行容器
+
+```bash
+docker run -d \
+  --name ai-travel-planner \
+  -p 3000:80 \
+  --restart unless-stopped \
+  crpi-icgszf47r31p3mkt.cn-hangzhou.personal.cr.aliyuncs.com/ai-travel-planner/ai-travel-planner:latest
+```
+
+### 访问应用
+
+打开浏览器访问：http://localhost:3000
+
+### 停止容器
+
+```bash
+docker stop ai-travel-planner
+docker rm ai-travel-planner
+```
+
 ## 项目结构
 
 详见 [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
@@ -229,3 +260,19 @@ docker run -d \
 ## 许可证
 
 MIT
+
+## 镜像信息
+
+- **仓库地址**: crpi-icgszf47r31p3mkt.cn-hangzhou.personal.cr.aliyuncs.com
+- **命名空间**: ai-travel-planner
+- **镜像名称**: ai-travel-planner
+- **访问权限**: 公开（无需登录即可拉取）
+
+### 可用标签
+
+- `latest` - 最新稳定版本
+- `1.0.0` - 指定版本
+
+### 镜像大小
+
+约 50MB（基于 Alpine Linux + Nginx）
